@@ -6,3 +6,4 @@ venv/
 config.json
 *.log
 *.pid
+usage*.jsonl
