@@ -9,9 +9,9 @@ This document describes the current `minimal_openai_proxy` deployment on
 host: 3090x8
 repo: /home/admin/wangyin.yx/workspace/minimal_openai_proxy
 listen: 0.0.0.0:18080
-public base URL: http://3090x8:18080/v1
+direct workstation base URL: http://11.166.42.141:18080/v1
 local server URL: http://127.0.0.1:18080/v1
-health check: http://3090x8:18080/healthz
+health check: http://11.166.42.141:18080/healthz
 usage log: /home/admin/wangyin.yx/workspace/minimal_openai_proxy/usage.jsonl
 process log: /home/admin/wangyin.yx/workspace/minimal_openai_proxy/proxy.log
 pid file: /home/admin/wangyin.yx/workspace/minimal_openai_proxy/proxy.pid
@@ -33,22 +33,26 @@ gpt-5.3 -> gpt-5.3-chat-0303-global
 
 ### Direct Access
 
-Because the service binds `0.0.0.0:18080`, a workstation that can resolve and
-reach `3090x8` can use:
+Because the service binds `0.0.0.0:18080`, a workstation that can reach the
+server IP can use:
 
 ```bash
-export OPENAI_BASE_URL="http://3090x8:18080/v1"
+export OPENAI_BASE_URL="http://11.166.42.141:18080/v1"
 export OPENAI_API_KEY="<enterprise key>"
 ```
 
 Smoke test:
 
 ```bash
-curl http://3090x8:18080/v1/responses \
+curl http://11.166.42.141:18080/v1/responses \
   -H "Authorization: Bearer $OPENAI_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"model":"gpt-5.5","input":"Say OK in one word.","max_output_tokens":64}'
 ```
+
+Note: `3090x8` is an SSH alias on the current macOS workstation, not a DNS name
+that `curl` can resolve. Use `11.166.42.141` for direct HTTP access, or use the
+SSH tunnel below.
 
 ### SSH Tunnel Fallback
 
@@ -72,7 +76,7 @@ For Codex CLI on a workstation, configure the built-in OpenAI provider to use
 the proxy by setting `openai_base_url` in `~/.codex/config.toml`:
 
 ```toml
-openai_base_url = "http://3090x8:18080/v1"
+openai_base_url = "http://11.166.42.141:18080/v1"
 ```
 
 Keep the API key in the existing Codex/OpenAI credential path or export it in
