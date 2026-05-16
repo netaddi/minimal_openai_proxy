@@ -27,6 +27,10 @@ HOP_BY_HOP_HEADERS = {
 }
 
 
+class UnsupportedRequestBody(Exception):
+    """Raised when a client request body cannot be forwarded safely."""
+
+
 @dataclasses.dataclass(frozen=True)
 class ProxyConfig:
     target_base_url: str
@@ -224,14 +228,7 @@ def make_handler(config: ProxyConfig):
             self.proxy_request()
 
         def respond_health(self) -> None:
-            payload = json.dumps(
-                {
-                    "ok": True,
-                    "target_base_url": config.target_base_url,
-                    "mapped_models": sorted(config.model_map.keys()),
-                },
-                separators=(",", ":"),
-            ).encode("utf-8")
+            payload = json.dumps({"ok": True}, separators=(",", ":")).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(payload)))
@@ -243,13 +240,25 @@ def make_handler(config: ProxyConfig):
         def read_body(self) -> bytes:
             content_length = self.headers.get("Content-Length")
             if not content_length:
+                if "chunked" in self.headers.get("Transfer-Encoding", "").lower():
+                    raise UnsupportedRequestBody("chunked request bodies are not supported")
                 return b""
             return self.rfile.read(int(content_length))
 
         def proxy_request(self) -> None:
+            status = 502
+            rewrite = None
+            try:
+                request_body = self.read_body()
+            except UnsupportedRequestBody as exc:
+                status = 501
+                self.respond_json_error(status, str(exc), "unsupported_request_body")
+                self.log_message('"%s %s" %s', self.command, self.path, status)
+                return
+
             base, target_path = build_target_request(config, self.path)
             body, rewrite = rewrite_json_model(
-                self.read_body(),
+                request_body,
                 self.headers.get("Content-Type", ""),
                 config.model_map,
             )
@@ -258,7 +267,7 @@ def make_handler(config: ProxyConfig):
 
             connection_cls = http.client.HTTPSConnection if base.scheme == "https" else http.client.HTTPConnection
             connection = connection_cls(target_host, timeout=config.timeout_seconds)
-            status = 502
+            headers_committed = False
             try:
                 connection.request(self.command, target_path, body=body or None, headers=headers)
                 upstream = connection.getresponse()
@@ -266,8 +275,9 @@ def make_handler(config: ProxyConfig):
                 self.send_response(upstream.status, upstream.reason)
                 copy_response_headers(self, upstream)
                 self.end_headers()
+                headers_committed = True
                 while True:
-                    chunk = upstream.read(config.chunk_size)
+                    chunk = upstream.read1(config.chunk_size)
                     if not chunk:
                         break
                     self.wfile.write(chunk)
@@ -275,7 +285,7 @@ def make_handler(config: ProxyConfig):
             except BrokenPipeError:
                 pass
             except Exception as exc:
-                if not self.headers_sent():
+                if not headers_committed:
                     self.respond_proxy_error(exc)
                 else:
                     self.log_error("upstream error after headers were sent: %r", exc)
@@ -285,15 +295,15 @@ def make_handler(config: ProxyConfig):
                 rewrite_msg = f" rewrite={rewrite[0]}->{rewrite[1]}" if rewrite else ""
                 self.log_message('"%s %s" %s%s', self.command, self.path, status, rewrite_msg)
 
-        def headers_sent(self) -> bool:
-            return getattr(self, "_headers_buffer", None) == []
-
         def respond_proxy_error(self, exc: Exception) -> None:
+            self.respond_json_error(502, f"proxy upstream request failed: {exc}", "proxy_error")
+
+        def respond_json_error(self, status: int, message: str, error_type: str) -> None:
             payload = json.dumps(
-                {"error": {"message": f"proxy upstream request failed: {exc}", "type": "proxy_error"}},
+                {"error": {"message": message, "type": error_type}},
                 separators=(",", ":"),
             ).encode("utf-8")
-            self.send_response(502)
+            self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(payload)))
             self.send_header("Connection", "close")
@@ -328,8 +338,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     handler = make_handler(config)
     with ThreadingHTTPServer((config.host, config.port), handler) as server:
         sys.stderr.write(
-            f"minimal-openai-proxy listening on http://{config.host}:{config.port} "
-            f"-> {config.target_base_url}\n"
+            f"minimal-openai-proxy listening on http://{config.host}:{config.port}; "
+            "upstream target configured\n"
         )
         server.serve_forever()
     return 0

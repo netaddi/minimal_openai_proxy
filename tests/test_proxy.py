@@ -1,7 +1,7 @@
 import json
+import socket
 import threading
 import unittest
-import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -80,6 +80,11 @@ class ProxyTest(unittest.TestCase):
     def proxy_url(self, path):
         return f"http://127.0.0.1:{self.proxy_port}{path}"
 
+    def test_health_check_does_not_expose_upstream_config(self):
+        with urllib.request.urlopen(self.proxy_url("/healthz"), timeout=5) as response:
+            self.assertEqual(response.status, 200)
+            self.assertEqual(json.loads(response.read()), {"ok": True})
+
     def test_rewrites_response_api_model_and_forwards_authorization(self):
         body = json.dumps({"model": "gpt-5.5", "input": "hello"}).encode("utf-8")
         request = urllib.request.Request(
@@ -123,6 +128,31 @@ class ProxyTest(unittest.TestCase):
 
         self.assertEqual(Capture.requests[0]["method"], "GET")
         self.assertEqual(Capture.requests[0]["path"], "/api/openai/v1/models?limit=1")
+
+    def test_rejects_chunked_request_body_instead_of_dropping_it(self):
+        with socket.create_connection(("127.0.0.1", self.proxy_port), timeout=5) as client:
+            client.sendall(
+                b"POST /v1/responses HTTP/1.1\r\n"
+                b"Host: 127.0.0.1\r\n"
+                b"Content-Type: application/json\r\n"
+                b"Transfer-Encoding: chunked\r\n"
+                b"Connection: close\r\n"
+                b"\r\n"
+                b"20\r\n"
+                b'{"model":"gpt-5.5","input":"x"}'
+                b"\r\n0\r\n\r\n"
+            )
+            chunks = []
+            while True:
+                chunk = client.recv(4096)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+            response = b"".join(chunks)
+
+        self.assertIn(b" 501 ", response.split(b"\r\n", 1)[0])
+        self.assertIn(b"unsupported_request_body", response)
+        self.assertEqual(Capture.requests, [])
 
 
 if __name__ == "__main__":
