@@ -29,6 +29,7 @@ It does not store, inject, or replace API keys. Client request headers, includin
 ├── tests/
 │   └── test_proxy.py         # Local fake-upstream tests for rewrite and forwarding
 ├── README.md                 # User, configuration, and operations guide
+├── DEPLOYMENT.md             # Generic deployment and operations guide
 └── .gitignore                # Ignores local config, logs, pid files, caches
 ```
 
