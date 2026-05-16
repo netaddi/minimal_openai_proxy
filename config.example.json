@@ -1,0 +1,11 @@
+{
+  "host": "127.0.0.1",
+  "port": 8000,
+  "target_base_url": "https://idealab.alibaba-inc.com/api/openai/v1",
+  "strip_prefix": "auto",
+  "model_map": {
+    "gpt-5.5": "gpt-5.5-0424-global",
+    "gpt-5.4": "gpt-5.4-0305-global",
+    "gpt-5.3": "gpt-5.3-chat-0303-global"
+  }
+}
