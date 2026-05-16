@@ -4,7 +4,7 @@
   "cached_read_semantics": "subset",
   "cached_write_semantics": "additive",
   "models": {
-    "enterprise-gpt-5.5": {
+    "gpt-5.5-0424-global": {
       "input": 0.0,
       "input_cached_read": 0.0,
       "input_cached_write": 0.0,
@@ -12,11 +12,11 @@
     }
   },
   "aliases": {
-    "gpt-5.5-0424-global": "enterprise-gpt-5.5"
+    "gpt-5.5": "gpt-5.5-0424-global"
   },
   "patterns": [
     {
-      "glob": "enterprise-gpt-5.*",
+      "glob": "gpt-5.*-global",
       "rates": {
         "input": 0.0,
         "input_cached_read": 0.0,

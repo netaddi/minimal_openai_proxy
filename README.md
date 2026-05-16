@@ -37,7 +37,7 @@ It does not store, inject, or replace API keys. Client request headers, includin
 ```text
 client
   -> http://proxy:18080/v1/responses
-  -> proxy rewrites {"model":"gpt-5.5"} to {"model":"enterprise-gpt-5.5"}
+  -> proxy rewrites {"model":"gpt-5.5"} to {"model":"gpt-5.5-0424-global"}
   -> https://your-enterprise-openai.example.com/v1/responses
 ```
 
@@ -64,9 +64,9 @@ Example `config.json`:
   "usage_log_path": "usage.jsonl",
   "usage_capture_max_bytes": 1048576,
   "model_map": {
-    "gpt-5.5": "enterprise-gpt-5.5",
-    "gpt-5.4": "enterprise-gpt-5.4",
-    "gpt-5.3": "enterprise-gpt-5.3"
+    "gpt-5.5": "gpt-5.5-0424-global",
+    "gpt-5.4": "gpt-5.4-0305-global",
+    "gpt-5.3": "gpt-5.3-chat-0303-global"
   }
 }
 ```
@@ -107,7 +107,7 @@ Later entries with the same key override earlier entries.
 
 ```bash
 export OPENAI_PROXY_TARGET_BASE_URL="https://your-enterprise-openai.example.com/v1"
-export OPENAI_PROXY_MODEL_MAP='{"gpt-5.5":"enterprise-gpt-5.5","gpt-5.4":"enterprise-gpt-5.4","gpt-5.3":"enterprise-gpt-5.3"}'
+export OPENAI_PROXY_MODEL_MAP='{"gpt-5.5":"gpt-5.5-0424-global","gpt-5.4":"gpt-5.4-0305-global","gpt-5.3":"gpt-5.3-chat-0303-global"}'
 export OPENAI_PROXY_HOST="0.0.0.0"
 export OPENAI_PROXY_PORT="18080"
 export OPENAI_PROXY_USAGE_LOG="usage.jsonl"
@@ -121,7 +121,7 @@ python3 minimal_openai_proxy.py \
   --host 0.0.0.0 \
   --port 18080 \
   --target-base-url https://your-enterprise-openai.example.com/v1 \
-  --model-map '{"gpt-5.5":"enterprise-gpt-5.5","gpt-5.4":"enterprise-gpt-5.4","gpt-5.3":"enterprise-gpt-5.3"}' \
+  --model-map '{"gpt-5.5":"gpt-5.5-0424-global","gpt-5.4":"gpt-5.4-0305-global","gpt-5.3":"gpt-5.3-chat-0303-global"}' \
   --usage-log usage.jsonl
 ```
 
@@ -224,7 +224,7 @@ Normalized `usage` fields currently include:
 Example record:
 
 ```json
-{"timestamp":"2026-05-16T02:00:00.000Z","request_id":"...","method":"POST","path":"/v1/responses","status":200,"duration_ms":1234.5,"request_model":"gpt-5.5","upstream_model":"enterprise-gpt-5.5","response_model":"enterprise-gpt-5.5","model_rewritten":true,"stream":true,"usage":{"input_tokens":10,"output_tokens":5,"total_tokens":15,"input_cached_read_tokens":3,"input_cached_write_tokens":0,"output_reasoning_tokens":2},"raw_usage":{"input_tokens":10,"output_tokens":5,"total_tokens":15}}
+{"timestamp":"2026-05-16T02:00:00.000Z","request_id":"...","method":"POST","path":"/v1/responses","status":200,"duration_ms":1234.5,"request_model":"gpt-5.5","upstream_model":"gpt-5.5-0424-global","response_model":"gpt-5.5-0424-global","model_rewritten":true,"stream":true,"usage":{"input_tokens":10,"output_tokens":5,"total_tokens":15,"input_cached_read_tokens":3,"input_cached_write_tokens":0,"output_reasoning_tokens":2},"raw_usage":{"input_tokens":10,"output_tokens":5,"total_tokens":15}}
 ```
 
 ## Cost Calculation
@@ -249,7 +249,7 @@ Pricing file shape:
   "cached_read_semantics": "subset",
   "cached_write_semantics": "additive",
   "models": {
-    "enterprise-gpt-5.5": {
+    "gpt-5.5-0424-global": {
       "input": 1.0,
       "input_cached_read": 0.25,
       "input_cached_write": 1.0,
@@ -257,11 +257,11 @@ Pricing file shape:
     }
   },
   "aliases": {
-    "gpt-5.5-0424-global": "enterprise-gpt-5.5"
+    "gpt-5.5": "gpt-5.5-0424-global"
   },
   "patterns": [
     {
-      "glob": "enterprise-gpt-5.*",
+      "glob": "gpt-5.*-global",
       "rates": {
         "input": 1.0,
         "input_cached_read": 0.25,
@@ -315,7 +315,7 @@ manager setup.
 
 ```bash
 cd ~/workspace
-git clone git@github.com:netaddi/minimal_openai_proxy.git
+git clone git@gitlab.alibaba-inc.com:wangyin.yx/minimal_openai_proxy.git
 cd minimal_openai_proxy
 cp config.example.json config.json
 ```
@@ -402,7 +402,7 @@ If the server listens only on localhost or the server port is not reachable
 directly, use an SSH tunnel:
 
 ```bash
-ssh -L 18080:127.0.0.1:18080 3090x8
+ssh -L 18080:127.0.0.1:18080 your-server
 ```
 
 Then configure clients with:
