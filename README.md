@@ -63,7 +63,6 @@ Example `config.json`:
   "strip_prefix": "auto",
   "usage_log_path": "usage.jsonl",
   "usage_capture_max_bytes": 1048576,
-  "max_request_body_bytes": 33554432,
   "model_map": {
     "gpt-5.5": "enterprise-gpt-5.5",
     "gpt-5.4": "enterprise-gpt-5.4",
@@ -89,15 +88,12 @@ Example `config.json`:
   logging.
 - `usage_capture_max_bytes`: Maximum non-stream response bytes held in memory
   only for usage parsing. Defaults to `1048576`.
-- `max_request_body_bytes`: Maximum client request body size. Defaults to
-  `33554432`.
 
 ### Configuration Precedence
 
 For scalar settings such as `target_base_url`, `host`, `port`, `timeout`,
-`strip_prefix`, `usage_log_path`, `usage_capture_max_bytes`, and
-`max_request_body_bytes`, CLI flags override environment variables, which
-override `config.json`.
+`strip_prefix`, `usage_log_path`, and `usage_capture_max_bytes`, CLI flags
+override environment variables, which override `config.json`.
 
 For `model_map`, entries are merged in this order:
 
@@ -126,8 +122,7 @@ python3 minimal_openai_proxy.py \
   --port 18080 \
   --target-base-url https://your-enterprise-openai.example.com/v1 \
   --model-map '{"gpt-5.5":"enterprise-gpt-5.5","gpt-5.4":"enterprise-gpt-5.4","gpt-5.3":"enterprise-gpt-5.3"}' \
-  --usage-log usage.jsonl \
-  --max-request-body-bytes 33554432
+  --usage-log usage.jsonl
 ```
 
 ## Client Usage

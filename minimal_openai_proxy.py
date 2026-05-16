@@ -57,7 +57,6 @@ class ProxyConfig:
     chunk_size: int = 8192
     usage_log_path: Optional[str] = "usage.jsonl"
     usage_capture_max_bytes: int = 1024 * 1024
-    max_request_body_bytes: int = 32 * 1024 * 1024
 
 
 class ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
@@ -138,21 +137,10 @@ def build_config(args: argparse.Namespace) -> ProxyConfig:
         )
     )
     usage_capture_max_bytes = int(usage_capture_value)
-    max_request_body_value = (
-        args.max_request_body_bytes
-        if args.max_request_body_bytes is not None
-        else os.getenv(
-            "OPENAI_PROXY_MAX_REQUEST_BODY_BYTES",
-            file_config.get("max_request_body_bytes", 32 * 1024 * 1024),
-        )
-    )
-    max_request_body_bytes = int(max_request_body_value)
     if not 0 < port < 65536:
         raise ValueError("port must be between 1 and 65535")
     if usage_capture_max_bytes < 0:
         raise ValueError("usage_capture_max_bytes must be >= 0")
-    if max_request_body_bytes <= 0:
-        raise ValueError("max_request_body_bytes must be > 0")
 
     return ProxyConfig(
         target_base_url=target_base_url.rstrip("/"),
@@ -163,7 +151,6 @@ def build_config(args: argparse.Namespace) -> ProxyConfig:
         strip_prefix=strip_prefix,
         usage_log_path=usage_log_path,
         usage_capture_max_bytes=usage_capture_max_bytes,
-        max_request_body_bytes=max_request_body_bytes,
     )
 
 
@@ -535,8 +522,6 @@ def make_handler(config: ProxyConfig):
                 raise RequestBodyError("invalid Content-Length", 400, "invalid_request_body") from exc
             if length < 0:
                 raise RequestBodyError("invalid Content-Length", 400, "invalid_request_body")
-            if length > config.max_request_body_bytes:
-                raise RequestBodyError("request body too large", 413, "request_body_too_large")
             return self.rfile.read(length)
 
         def proxy_request(self) -> None:
@@ -746,11 +731,6 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         "--usage-capture-max-bytes",
         type=int,
         help="Maximum non-stream response bytes to hold for usage parsing. Defaults to 1048576.",
-    )
-    parser.add_argument(
-        "--max-request-body-bytes",
-        type=int,
-        help="Maximum client request body size. Defaults to 33554432.",
     )
     return parser.parse_args(argv)
 

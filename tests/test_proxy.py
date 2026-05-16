@@ -106,7 +106,6 @@ class ProxyTest(unittest.TestCase):
                 "gpt-5.3": "gpt-5.3-chat-0303-global",
             },
             usage_log_path=self.usage_log_path,
-            max_request_body_bytes=1024,
         )
         self.proxy = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(config))
         start_server(self.proxy)
@@ -245,7 +244,7 @@ class ProxyTest(unittest.TestCase):
         self.assertEqual(usage_record["usage"]["total_tokens"], 15)
         self.assertNotIn("usage_parse_warning", usage_record)
 
-    def test_rejects_oversized_request_body_before_upstream(self):
+    def test_forwards_large_request_body_to_upstream(self):
         body = json.dumps({"model": "gpt-5.5", "input": "x" * 2000}).encode("utf-8")
         request = urllib.request.Request(
             self.proxy_url("/v1/responses"),
@@ -254,15 +253,14 @@ class ProxyTest(unittest.TestCase):
             method="POST",
         )
 
-        with self.assertRaises(urllib.error.HTTPError) as ctx:
-            urllib.request.urlopen(request, timeout=5)
+        with urllib.request.urlopen(request, timeout=5) as response:
+            self.assertEqual(response.status, 200)
+            response.read()
 
-        self.assertEqual(ctx.exception.code, 413)
-        ctx.exception.read()
-        self.assertEqual(Capture.requests, [])
+        self.assertEqual(len(Capture.requests), 1)
         usage_record = self.read_usage_records()[-1]
-        self.assertEqual(usage_record["status"], 413)
-        self.assertEqual(usage_record["error_type"], "request_body_too_large")
+        self.assertEqual(usage_record["status"], 200)
+        self.assertGreater(usage_record["request_bytes"], 2000)
 
     def test_rejects_chunked_request_body_instead_of_dropping_it(self):
         with socket.create_connection(("127.0.0.1", self.proxy_port), timeout=5) as client:
