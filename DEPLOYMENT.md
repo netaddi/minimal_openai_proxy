@@ -72,15 +72,15 @@ export OPENAI_API_KEY="<enterprise key>"
 
 ## Codex CLI From macOS
 
-For Codex CLI on the current macOS workstation, the existing `idealab` provider
-is configured to use the proxy and the default model is set back to the public
+For Codex CLI on the current macOS workstation, the `idealab-proxy` provider is
+configured to use the proxy and the default model is set back to the public
 OpenAI model name:
 
 ```toml
 model = "gpt-5.5"
-model_provider = "idealab"
+model_provider = "idealab-proxy"
 
-[model_providers.idealab]
+[model_providers.idealab-proxy]
 base_url = "http://11.166.42.141:18080/v1"
 wire_api = "responses"
 ```
@@ -96,7 +96,7 @@ codex exec "Say OK in one word."
 If using an SSH tunnel instead, set:
 
 ```toml
-[model_providers.idealab]
+[model_providers.idealab-proxy]
 base_url = "http://127.0.0.1:18080/v1"
 ```
 
