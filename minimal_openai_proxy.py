@@ -345,17 +345,23 @@ def extract_response_info(payload: object) -> dict:
     if isinstance(error, dict):
         error_type = error.get("type")
         error_code = error.get("code")
+        error_message = error.get("message")
         if isinstance(error_type, str):
             info["response_error_type"] = error_type
         if isinstance(error_code, (str, int)):
             info["response_error_code"] = error_code
+        if isinstance(error_message, str):
+            info["response_error_message"] = error_message
     elif isinstance(payload.get("error"), dict):
         error_type = payload["error"].get("type")
         error_code = payload["error"].get("code")
+        error_message = payload["error"].get("message")
         if isinstance(error_type, str):
             info["response_error_type"] = error_type
         if isinstance(error_code, (str, int)):
             info["response_error_code"] = error_code
+        if isinstance(error_message, str):
+            info["response_error_message"] = error_message
     return info
 
 
@@ -683,6 +689,7 @@ def make_handler(config: ProxyConfig):
                 "upstream_request_id": response_info.get("upstream_request_id"),
                 "error_type": response_info.get("response_error_type"),
                 "error_code": response_info.get("response_error_code"),
+                "error_message": response_info.get("response_error_message"),
                 "usage": usage,
                 "raw_usage": raw_usage or {},
             }
