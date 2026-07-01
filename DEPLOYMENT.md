@@ -20,6 +20,40 @@ gpt-5.3 -> gpt-5.3-chat-0303-global
 API keys are not stored by the proxy. Each client must send its own
 `Authorization` header.
 
+## Current Deployments
+
+Current internal deployments use the same repository layout, the same local
+`config.json` contents, the same `0.0.0.0:18080` listener, and the same
+`nohup`/`proxy.pid` process model. Machine-local files such as `config.json`,
+`proxy.log`, `usage.jsonl`, and `proxy.pid` remain untracked.
+
+```text
+host: 3090x8
+repo: /home/admin/wangyin.yx/workspace/minimal_openai_proxy
+runtime: python3
+listen: 0.0.0.0:18080
+direct base URL: http://11.166.42.141:18080/v1
+health check: http://11.166.42.141:18080/healthz
+```
+
+```text
+host: l20-new
+repo: /home/wangyin.yx/workspace/minimal_openai_proxy
+runtime: /home/wangyin.yx/.local/share/uv/python/cpython-3.11-linux-x86_64-gnu/bin/python3.11
+listen: 0.0.0.0:18080
+direct base URL: http://11.139.21.94:18080/v1
+health check: http://11.139.21.94:18080/healthz
+```
+
+`l20-new` is normally reached through the `l20-new` SSH alias, which uses
+`jump-ea120`. If direct HTTP to `11.139.21.94:18080` is blocked from the current
+workstation network, use an SSH tunnel:
+
+```bash
+ssh -L 18080:127.0.0.1:18080 l20-new
+export OPENAI_BASE_URL="http://127.0.0.1:18080/v1"
+```
+
 ## Prerequisites
 
 - Linux server with Python 3.9+.
@@ -129,6 +163,13 @@ Expected health response:
 {"ok":true}
 ```
 
+Current host checks:
+
+```bash
+ssh 3090x8 'cd ~/workspace/minimal_openai_proxy && git status --short --branch && ps -fp "$(cat proxy.pid)" && curl -sS http://127.0.0.1:18080/healthz'
+ssh l20-new 'cd ~/workspace/minimal_openai_proxy && git status --short --branch && ps -fp "$(cat proxy.pid)" && curl -sS http://127.0.0.1:18080/healthz'
+```
+
 ## Stop
 
 ```bash
@@ -145,6 +186,19 @@ nohup python3 minimal_openai_proxy.py --host 0.0.0.0 --port 18080 > proxy.log 2>
 echo $! > proxy.pid
 ```
 
+For `l20-new`, use its uv-managed Python runtime:
+
+```bash
+ssh l20-new '
+cd ~/workspace/minimal_openai_proxy
+PYTHON=/home/wangyin.yx/.local/share/uv/python/cpython-3.11-linux-x86_64-gnu/bin/python3.11
+kill "$(cat proxy.pid)" 2>/dev/null || true
+rm -f proxy.pid
+nohup "$PYTHON" minimal_openai_proxy.py --host 0.0.0.0 --port 18080 </dev/null > proxy.log 2>&1 &
+echo $! > proxy.pid
+'
+```
+
 ## Update
 
 Use the current checked-out branch for updates, normally `main`. Do not create
@@ -158,6 +212,9 @@ rm -f proxy.pid
 nohup python3 minimal_openai_proxy.py --host 0.0.0.0 --port 18080 > proxy.log 2>&1 &
 echo $! > proxy.pid
 ```
+
+For `l20-new`, replace `python3` with the uv-managed runtime path shown in
+`Current Deployments`.
 
 ## Logs And Cost
 
