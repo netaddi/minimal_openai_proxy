@@ -161,6 +161,10 @@ export OPENAI_API_KEY="<enterprise key>"
 
 ## Local Development
 
+Work on the current checked-out branch, normally `main`. Do not create new
+branches for repository updates; commit changes to the current branch and push
+that branch.
+
 Run tests:
 
 ```bash

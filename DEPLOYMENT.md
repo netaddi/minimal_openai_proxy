@@ -147,6 +147,9 @@ echo $! > proxy.pid
 
 ## Update
 
+Use the current checked-out branch for updates, normally `main`. Do not create
+new branches; commit changes to the current branch and push that branch.
+
 ```bash
 git pull --ff-only
 python3 -m unittest discover -s tests
