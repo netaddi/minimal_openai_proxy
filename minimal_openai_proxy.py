@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A tiny OpenAI-compatible proxy that rewrites only the top-level model field."""
+"""A tiny OpenAI-compatible proxy for enterprise OpenAI endpoints."""
 
 from __future__ import annotations
 
@@ -206,13 +206,49 @@ def parse_json_body(body: bytes, content_type: str) -> Optional[dict]:
     return payload
 
 
+def drop_unsupported_reasoning_input_items(payload: dict) -> int:
+    """Drop encrypted reasoning carryover items that some compatible APIs reject.
+
+    Codex may include previous Responses API reasoning items with
+    ``encrypted_content`` so the original OpenAI endpoint can restore hidden
+    reasoning state. Enterprise/Azure-compatible backends may not be able to
+    decrypt those blobs and can terminate the SSE stream with
+    ``invalid_encrypted_content``. The user-visible transcript and tool outputs
+    remain in the request, so forwarding is still useful after dropping them.
+    """
+
+    input_items = payload.get("input")
+    if not isinstance(input_items, list):
+        return 0
+
+    filtered_items = []
+    dropped = 0
+    for item in input_items:
+        if (
+            isinstance(item, dict)
+            and item.get("type") == "reasoning"
+            and ("encrypted_content" in item or item.get("content") is None)
+        ):
+            dropped += 1
+            continue
+        filtered_items.append(item)
+
+    if dropped:
+        payload["input"] = filtered_items
+    return dropped
+
+
 def rewrite_json_model(body: bytes, content_type: str, model_map: Dict[str, str]) -> Tuple[bytes, Optional[Tuple[str, str]]]:
     payload = parse_json_body(body, content_type)
     if payload is None:
         return body, None
 
+    dropped_reasoning_items = drop_unsupported_reasoning_input_items(payload)
     old_model = payload.get("model")
     if not isinstance(old_model, str) or old_model not in model_map:
+        if dropped_reasoning_items:
+            sanitized = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+            return sanitized, None
         return body, None
 
     new_model = model_map[old_model]

@@ -181,6 +181,75 @@ class ProxyTest(unittest.TestCase):
 
         self.assertEqual(json.loads(Capture.requests[0]["body"])["model"], "custom")
 
+    def test_drops_encrypted_reasoning_input_items_before_forwarding(self):
+        body = json.dumps(
+            {
+                "model": "gpt-5.5",
+                "input": [
+                    {
+                        "type": "reasoning",
+                        "summary": [],
+                        "content": None,
+                        "encrypted_content": "gAAAA_invalid_for_upstream",
+                    },
+                    {
+                        "type": "message",
+                        "role": "user",
+                        "content": [{"type": "input_text", "text": "hello"}],
+                    },
+                ],
+            }
+        ).encode("utf-8")
+        request = urllib.request.Request(
+            self.proxy_url("/v1/responses"),
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=5) as response:
+            self.assertEqual(response.status, 200)
+
+        forwarded = json.loads(Capture.requests[0]["body"])
+        self.assertEqual(forwarded["model"], "gpt-5.5-0424-global")
+        self.assertEqual(
+            forwarded["input"],
+            [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "hello"}],
+                }
+            ],
+        )
+
+    def test_drops_encrypted_reasoning_even_without_model_rewrite(self):
+        body = json.dumps(
+            {
+                "model": "custom",
+                "input": [
+                    {
+                        "type": "reasoning",
+                        "summary": [],
+                        "content": None,
+                        "encrypted_content": "gAAAA_invalid_for_upstream",
+                    },
+                    "hello",
+                ],
+            }
+        ).encode("utf-8")
+        request = urllib.request.Request(
+            self.proxy_url("/v1/responses"),
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=5) as response:
+            self.assertEqual(response.status, 200)
+
+        forwarded = json.loads(Capture.requests[0]["body"])
+        self.assertEqual(forwarded["model"], "custom")
+        self.assertEqual(forwarded["input"], ["hello"])
+
     def test_get_is_forwarded_with_query_string(self):
         with urllib.request.urlopen(self.proxy_url("/v1/models?limit=1"), timeout=5) as response:
             self.assertEqual(response.status, 200)
